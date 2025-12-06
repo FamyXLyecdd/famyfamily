@@ -1,0 +1,25 @@
+# Data files (contain sensitive info)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.env
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+token.txt
+bot.py
+config.json
