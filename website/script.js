@@ -502,6 +502,23 @@ async function completeVerification() {
             } catch (apiErr) {
                 console.log('Bot API not available (expected on Vercel)');
             }
+
+            // SYNC TO SUPABASE (works across hosts)
+            try {
+                await fetch('https://nvrjfeqvqlbsbmalbqgy.supabase.co/rest/v1/web_verified', {
+                    method: 'POST',
+                    headers: {
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52cmpmZXF2cWxic2JtYWxicWd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMTEwNzcsImV4cCI6MjA4MDU4NzA3N30.B2HqN_ufuqnCrkp6C0r58hQ3rAcrtWww-BOJ3seNSSY',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52cmpmZXF2cWxic2JtYWxicWd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMTEwNzcsImV4cCI6MjA4MDU4NzA3N30.B2HqN_ufuqnCrkp6C0r58hQ3rAcrtWww-BOJ3seNSSY',
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({ user_id: String(userData.id) })
+                });
+                console.log('Synced to Supabase');
+            } catch (e) {
+                console.log('Supabase sync error:', e);
+            }
         }
 
         // Final processing delay
@@ -677,7 +694,7 @@ function goToStep(step) {
         el.classList.toggle('active', i + 1 <= step);
         el.classList.toggle('completed', i + 1 < step);
     });
-    
+
     // If step 3 (success), show verification code
     if (step === 3 && window.verificationCode) {
         const codeDisplay = document.getElementById('verifyCodeDisplay');
@@ -694,7 +711,7 @@ function goToStep(step) {
 async function syncToSupabase(userId) {
     const SUPABASE_URL = 'https://nvrjfeqvqlbsbmalbqgy.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52cmpmZXF2cWxic2JtYWxicWd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMTEwNzcsImV4cCI6MjA4MDU4NzA3N30.B2HqN_ufuqnCrkp6C0r58hQ3rAcrtWww-BOJ3seNSSY';
-    
+
     try {
         await fetch(SUPABASE_URL + '/rest/v1/web_verified', {
             method: 'POST',
@@ -715,7 +732,7 @@ async function syncToSupabase(userId) {
 }
 
 // Call this on verification complete
-window.syncVerifiedUser = async function() {
+window.syncVerifiedUser = async function () {
     if (window.userData && window.userData.id) {
         await syncToSupabase(window.userData.id);
     }
