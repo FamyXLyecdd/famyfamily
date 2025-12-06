@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification - Processing...</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .error {
+            color: #ff6b6b;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .success {
+            color: #10b981;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="spinner" id="spinner"></div>
+        <h1 id="title">Processing Verification...</h1>
+        <p id="message">Please wait while we verify your Discord account.</p>
+        <p class="error" id="error"></p>
+    </div>
+
+    <script>
+        // Config - must match script.js
+        const CLIENT_ID = '1446661285923000411';
+        const CLIENT_SECRET = 'qi_w8jCzZcidKH9908lEQkgZBhuYBJAA';
+        const REDIRECT_URI = window.location.origin + '/callback.html';
+
+        async function handleCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const error = params.get('error');
+
+            if (error) {
+                showError(params.get('error_description') || error);
+                notifyParent('error', error);
+                return;
+            }
+
+            if (!code) {
+                showError('No authorization code received');
+                return;
+            }
+
+            try {
+                // Exchange code for token
+                const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        client_id: CLIENT_ID,
+                        client_secret: CLIENT_SECRET,
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: REDIRECT_URI
+                    })
+                });
+
+                if (!tokenResponse.ok) {
+                    const errData = await tokenResponse.json();
+                    throw new Error(errData.error_description || 'Failed to exchange code');
+                }
+
+                const tokenData = await tokenResponse.json();
+                const accessToken = tokenData.access_token;
+
+                // Get user info with token
+                const userResponse = await fetch('https://discord.com/api/users/@me', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (!userResponse.ok) {
+                    throw new Error('Failed to get user info');
+                }
+
+                const user = await userResponse.json();
+
+                // Add created_at for account age check
+                user.created_at = getCreatedAt(user.id);
+
+                console.log('Got real user:', user.username);
+
+                document.getElementById('title').textContent = 'Success!';
+                document.getElementById('title').classList.add('success');
+                document.getElementById('message').textContent = `Welcome, ${user.username}!`;
+
+                notifyParent('success', user);
+
+            } catch (err) {
+                console.error('OAuth Error:', err);
+                showError(err.message);
+                notifyParent('error', err.message);
+            }
+        }
+
+        // Calculate created_at from Discord snowflake ID
+        function getCreatedAt(snowflake) {
+            const discordEpoch = 1420070400000;
+            const timestamp = (BigInt(snowflake) >> 22n) + BigInt(discordEpoch);
+            return new Date(Number(timestamp)).toISOString();
+        }
+
+        function notifyParent(type, data) {
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: type === 'success' ? 'discord_oauth_success' : 'discord_oauth_error',
+                    user: type === 'success' ? data : null,
+                    error: type === 'error' ? data : null
+                }, '*');
+
+                setTimeout(() => window.close(), 1500);
+            } else {
+                // Redirect back if not popup
+                if (type === 'success') {
+                    localStorage.setItem('verified_user', JSON.stringify(data));
+                }
+                window.location.href = '/';
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('error').textContent = msg;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('title').textContent = 'Verification Failed';
+        }
+
+        handleCallback();
+    </script>
+</body>
+
+</html>
